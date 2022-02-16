@@ -1,5 +1,5 @@
 # Quality Boost
-CS:S Trikz Macro for insecure servers made as [client plugin](https://developer.valvesoftware.com/wiki/Client_plugins  
+CS:S Trikz Macro for insecure servers made as [client plugin](https://developer.valvesoftware.com/wiki/Client_plugins)
 
 # Installation
 Place **macro.dll** inside **cstrike** folder.
