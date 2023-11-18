@@ -21,4 +21,4 @@ class Plugin : IServerPluginCallbacks {
     virtual void on_query_cvar_value_finished(int cookie, Edict* ent, QueryCvarValueStatus status, const char* name, const char* value);
     virtual void on_edict_allocated(Edict* edict);
     virtual void on_edict_freed(const Edict* edict);
-} inline plugin;
+};
