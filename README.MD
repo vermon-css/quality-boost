@@ -1,5 +1,5 @@
 # Description
-When throwing a grenade, the server logic typically releases it after 0.1 seconds. To achieve maximum vertical speed, it is important to jump at the same moment since the grenade inherits the player's speed. If you jump later, gravity will come into play, and the vertical speed will decrease.
+When throwing a grenade, the server logic typically [releases it after 0.1 seconds](https://github.com/lua9520/source-engine-2018-hl2_src/blob/3bf9df6b2785fa6d951086978a3e66f49427166a/game/shared/cstrike/weapon_basecsgrenade.cpp#L309). To achieve maximum vertical speed, it is important to jump at the same moment since the grenade [inherits the player's speed](https://github.com/lua9520/source-engine-2018-hl2_src/blob/3bf9df6b2785fa6d951086978a3e66f49427166a/game/shared/cstrike/weapon_basecsgrenade.cpp#L380). If you jump later, gravity will come into play, and the vertical speed will decrease.
 
 This macro automatically throws a flashbang and jumps after a specified amount of time. By default, the maximum vertical speed is expected.
 
