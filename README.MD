@@ -1,15 +1,15 @@
 # Description
-Usually, when we throw a grenade, the server logic releases it after 0.1 seconds. And since the grenade inherits the player’s speed, to achieve maximum vertical speed we must jump at the same moment, since later the gravity would come in, and the vertical speed would decrease.
+When throwing a grenade, the server logic typically releases it after 0.1 seconds. To achieve maximum vertical speed, it is important to jump at the same moment since the grenade inherits the player's speed. If you jump later, gravity will come into play, and the vertical speed will decrease.
 
 This macro automatically throws a flashbang and jumps after a specified amount of time. By default, the maximum vertical speed is expected.
 
-It is implemented as [client plugin](https://developer.valvesoftware.com/wiki/Client_plugins) so it can be quite convenient to use it.
+It is implemented as a [client plugin](https://developer.valvesoftware.com/wiki/Client_plugins) so it can be quite convenient to use it.
 
 # Setup
 1. Place ``macro.dll`` inside ``cstrike`` folder.  
-2. You should add ``--insecure`` lauch option in order to load it since the engine expects this.  
-3. Enter ``plugin_load macro`` in the console being in the main menu. You may also add ``+plugin_load macro`` to the game launch parameters to automatically load it on startup.
+2. Add the ``-insecure`` launch option as the engine expects it.  
+3. Enter ``plugin_load macro`` in the console while in the main menu. Alternatively, you can add ``+plugin_load macro`` to the game launch parameters to load it automatically on startup.
 
 # Usage
 Activate by pressing MOUSE2 button (+attack2).  
-To change the delay, there is ``macro`` console command, type ``macro {delay}``, e.g. *macro 0.08*.
+To change the delay, there is the ``macro`` console command. Type ``macro {delay}``, for example, *macro 0.08*.
