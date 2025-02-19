@@ -4,11 +4,8 @@
 #include <Windows.h>
 #include <Psapi.h>
 
-#include <sdk/client_entity_list.hpp>
-#include <sdk/base_handle.hpp>
 #include <sdk/user_cmd.hpp>
 #include <sdk/player_buttons.hpp>
-#include <sdk/player_info_manager.hpp>
 #include <sdk/global_vars.hpp>
 #include <sdk/player_flags.hpp>
 #include <sdk/engine_cvar.hpp>
@@ -19,9 +16,8 @@
 #include "command.hpp"
 
 class BasePlayer;
+class BaseCombatWeapon;
 class IClientMode;
-
-constexpr int client_mode_create_move_vtable_index = 21;
 
 Plugin pl;
 
@@ -31,10 +27,13 @@ BasePlayer** local_player;
 
 ICvar* engine_cvar;
 GlobalVars* global_vars;
-IClientEntityList* entity_list;
 IClientMode* client_mode;
 
-bool (__thiscall *original_create_move)(IClientMode*, float, UserCmd*);
+using CreateMove = bool (*)(IClientMode*, float, UserCmd*);
+using GetActiveWeapon = BaseCombatWeapon* (*)(BasePlayer*);
+using GetWeaponName = const char* (*)(BaseCombatWeapon*);
+
+CreateMove original_create_move;
 
 bool pull = false;
 float throw_time = 0.0f;
@@ -50,11 +49,11 @@ void* CreateInterface(const char* name, InterfaceReturnStatus* rc) {
     return p;
 }
 
-bool __fastcall create_move(IClientMode* client_mode, void*, float input_sample_time, UserCmd* cmd) {
+bool create_move(IClientMode* client_mode, __int64 input_sample_time, UserCmd* cmd) {
     if (!cmd->command_number || !*local_player)
         return original_create_move(client_mode, input_sample_time, cmd);
 
-    auto tick_base_time = *offset<int>(*local_player, offsets::tick_base) * global_vars->interval_per_tick;
+    auto tick_base_time = offset<int>(*local_player, offsets::members::tick_base) * global_vars->interval_per_tick;
 
     if (throw_time) {
         if (throw_time < tick_base_time) {
@@ -68,16 +67,18 @@ bool __fastcall create_move(IClientMode* client_mode, void*, float input_sample_
         pull = false;
     }
     else {
-        auto active_weapon = *offset<BaseHandle>(*local_player, offsets::active_weapon);
-        auto weapon = entity_list->get_client_entity_from_handle(active_weapon);
+        auto weapon = instance_vtable_offset<GetActiveWeapon>(*local_player, offsets::vtable::get_active_weapon)(*local_player);
 
-        constexpr unsigned short flashbang_handle = 9728;
-
-        if (!weapon || (*offset<unsigned short>(weapon, offsets::weapon_file_info) != flashbang_handle))
+        if (!weapon)
             return original_create_move(client_mode, input_sample_time, cmd);
 
-        auto flags = *offset<int>(*local_player, offsets::flags);
-        auto next_attack = *offset<float>(*local_player, offsets::next_attack);
+        const auto name = instance_vtable_offset<GetWeaponName>(weapon, offsets::vtable::get_weapon_name)(weapon);
+
+        if (std::strcmp(name, "weapon_flashbang") != 0)
+            return original_create_move(client_mode, input_sample_time, cmd);
+
+        auto flags = offset<int>(*local_player, offsets::members::flags);
+        auto next_attack = offset<float>(*local_player, offsets::members::next_attack);
 
         if ((flags & PlayerFlags::ON_GROUND) && (next_attack <= global_vars->cur_time) && (cmd->buttons & PlayerButtons::ATTACK2)) {
             cmd->buttons |= PlayerButtons::ATTACK;
@@ -105,13 +106,9 @@ void MacroCommand::dispatch(const Command& c) {
 
 bool Plugin::load(create_interface_fn ef, create_interface_fn sf) {
     engine_cvar = reinterpret_cast<ICvar*>(ef(interface_version_engine_cvar, nullptr));
-
     engine_cvar->register_con_command(&command);
 
     auto client_module = GetModuleHandleA("client.dll");
-    auto cf = reinterpret_cast<create_interface_fn>(GetProcAddress(client_module, "CreateInterface"));
-    
-    entity_list = reinterpret_cast<IClientEntityList*>(cf(interface_version_client_entity_list, nullptr));
 
     MODULEINFO client_module_info;
     GetModuleInformation(GetCurrentProcess(), client_module, &client_module_info, sizeof(MODULEINFO));
@@ -119,22 +116,18 @@ bool Plugin::load(create_interface_fn ef, create_interface_fn sf) {
     DWORD old_protection;
     VirtualProtect(client_module_info.lpBaseOfDll, client_module_info.SizeOfImage, PAGE_EXECUTE_READWRITE, &old_protection);
 
-    local_player = offset<BasePlayer*>(client_module_info.lpBaseOfDll, offsets::local_player);
-    global_vars = *offset<GlobalVars*>(client_module_info.lpBaseOfDll, offsets::global_vars);
-    client_mode = *offset<IClientMode*>(client_module_info.lpBaseOfDll, offsets::client_mode);
+    local_player = &offset<BasePlayer*>(client_module_info.lpBaseOfDll, offsets::globals::local_player);
+    global_vars = offset<GlobalVars*>(client_module_info.lpBaseOfDll, offsets::globals::global_vars);
+    client_mode = offset<IClientMode*>(client_module_info.lpBaseOfDll, offsets::globals::client_mode);
 
-    auto vtable = *reinterpret_cast<void***>(client_mode);
-
-    original_create_move = reinterpret_cast<decltype(original_create_move)>(vtable[client_mode_create_move_vtable_index]);
-    vtable[client_mode_create_move_vtable_index] = reinterpret_cast<void*>(create_move);
+    original_create_move = instance_vtable_offset<CreateMove>(client_mode, offsets::vtable::create_move);
+    instance_vtable_offset<CreateMove>(client_mode, offsets::vtable::create_move) = reinterpret_cast<CreateMove>(create_move);
 
     return true;
 }
 
 void Plugin::unload() {
-    auto vtable = *reinterpret_cast<void***>(client_mode);
-    vtable[client_mode_create_move_vtable_index] = reinterpret_cast<void*>(original_create_move);
-
+    instance_vtable_offset<CreateMove>(client_mode, offsets::vtable::create_move) = original_create_move;
     engine_cvar->unregister_con_command(&command);
 }
 
